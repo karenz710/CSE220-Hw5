@@ -36,7 +36,7 @@ typedef struct {
     int pot_size;                                  // total chips in pot
     int current_player;                            // index of current turn
     int dealer_player;                             // index of dealer TODO
-    round_stage_t round_stage;                     // init/preflop/flop/turn/river/showdown
+    round_stage_t round_stage;                     // init/preflop/flop/turn/river/showdown *** what is used to NACK ACK to see what move is valid when packets are sent
     int num_players;                               // total players in game
     int sockets[MAX_PLAYERS];                      // sockets for each player
 } game_state_t;
