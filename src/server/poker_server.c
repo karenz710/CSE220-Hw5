@@ -62,25 +62,38 @@ int main(int argc, char **argv) {
     }
 
     int rand_seed = argc == 2 ? atoi(argv[1]) : 0;
-    init_game_state(&game, 100, rand_seed);
+    init_game_state(&game, 100, rand_seed); // already intialize stage
+
 
     //Join state?
     // accept incoming connections
     for (int i = 0; i < NUM_PORTS; i++) {
         struct sockaddr_in client_addr;
-        if ((conn_fd = accept(listen_fd, (struct sockaddr *)&client_addr, (socklen_t *)&addrlen)) < 0) {
+        if ((conn_fd = accept(server_fds[i], (struct sockaddr *)&client_addr, (socklen_t *)&addrlen)) < 0) {
             perror("[Server] accept() failed.");
             exit(EXIT_FAILURE);
         }
-        players[i].address = client_addr;
         players[i].socket = conn_fd;
-        player_count++;
+        players[i].address = client_addr;
+        game.sockets[i] = conn_fd;
+        game.round_stage = ROUND_JOIN;
     }
+    server_join(&game); // receive join packets
+
     
+
+    // at the initial start of the game, player 0 is the dealer (or the next possible player)
+    // the person after the dealer is who goes first and for each round after new cards in community are added
+    // after first hand, the next person is dealer
     while (1) {
-       
-        // READY
+        reset_game_state(&game);
         
+        // READY
+        // ready or leave if leave disconnect the socket and skip the player for remaining rounds
+        game.round_stage = ROUND_INIT;
+        server_ready(&game);
+
+
         // DEAL TO PLAYERS
 
         // PREFLOP BETTING

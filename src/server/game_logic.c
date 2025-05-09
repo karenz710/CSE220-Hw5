@@ -13,7 +13,9 @@
 
 // for debugging
 void print_game_state( game_state_t *game){
-    (void) game;
+    for (int i = 0; i < MAX_PLAYERS; i++) {
+        printf("player status %d is %d\n", i, game->player_status[i]);
+    }
 }
 
 void init_deck(card_t deck[DECK_SIZE], int seed){ //DO NOT TOUCH THIS FUNCTION
@@ -48,20 +50,60 @@ void reset_game_state(game_state_t *game) {
     shuffle_deck(game->deck);
     //Call this function between hands.
     //You should add your own code, I just wanted to make sure the deck got shuffled.
+
 }
 
 void server_join(game_state_t *game) {
     //This function was called to get the join packets from all players
-    (void) game;
+    client_packet_t in_pkt;
+    for (int i = 0; i < MAX_PLAYERS; i++){
+        recv(game->sockets[i], &in_pkt, sizeof(in_pkt), 0);
+        if (in_pkt.packet_type == JOIN) {
+                game->player_status[i] = PLAYER_ACTIVE; // sets ALL player to 1
+                printf("Player #%d joined\n", i);
+        }
+    }
 }
 
 int server_ready(game_state_t *game) {
     //This function updated the dealer and checked ready/leave status for all players
-    (void)game;
-    return 0;
+    client_packet_t in_pkt;
+    int num_ready = 0;
+
+    for(int i = 0; i < MAX_PLAYERS; i++) {
+        if (game->player_status[i] == PLAYER_ACTIVE) {
+            if (recv(game->sockets[i], &in_pkt, sizeof(in_pkt), 0) <= 0) {
+                perror("recv failed in recv_packet");
+                return -1;
+            }
+
+            switch (in_pkt.packet_type) {
+                case READY:
+                    game->player_status[i] = 1; // player active
+                    num_ready++;
+                    break;
+                case LEAVE:
+                    game->player_status[i] = 2; // left game
+                    // disconnect
+                    close(game->sockets[i]);
+                    break;
+                default:
+                    break; // not meant to happen
+            }
+        }
+        
+    }
+    print_game_state(game);
+    return num_ready;
 }
 
 //This was our dealing function with some of the code removed (I left the dealing so we have the same logic)
+// create packet info for each player and send packet info
+// send NACK if player - indicates still their turn and resend packet info
+// "raises" less than the call amount, 
+// if you check after someone bets, 
+// if you try to "raise" more than you have,
+// if you send "READY" or "LEAVE" instead of check/call/raise/fold.
 void server_deal(game_state_t *game) {
     for (int i = 0; i < MAX_PLAYERS; i++) {
         if (game->player_status[i] == PLAYER_ACTIVE) {
@@ -90,7 +132,8 @@ void server_community(game_state_t *game) {
 
 void server_end(game_state_t *game) {
     //This function sends the end packet
-    (void) game;
+    info_packet_t info_pkt;
+    
 }
 
 int evaluate_hand(game_state_t *game, player_id_t pid) {
