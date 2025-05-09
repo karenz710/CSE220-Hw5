@@ -108,6 +108,7 @@ int main(int argc, char **argv) {
         // PLACE FLOP CARDS
         server_community(&game);
 
+
         // FLOP BETTING
         // server_bet(&game);
         

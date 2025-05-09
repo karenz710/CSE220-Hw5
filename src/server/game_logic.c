@@ -124,18 +124,18 @@ int server_ready(game_state_t *game) {
             }
         }
         // curr player is updated to after
-        int curr_player = game->dealer_player + 1 % MAX_PLAYERS;
+        int curr_player = (game->dealer_player + 1) % MAX_PLAYERS;
         while (game->player_status[curr_player] != PLAYER_ACTIVE) {
-            curr_player = curr_player + 1 % MAX_PLAYERS;
+            curr_player = (curr_player + 1) % MAX_PLAYERS;
         }
         game->current_player = curr_player;
     } else {
     // rounds thereafter
         int old_dealer = game->dealer_player;
-        int new_dealer = old_dealer + 1 % MAX_PLAYERS;
+        int new_dealer =( old_dealer + 1) % MAX_PLAYERS;
         // check if next player is ava if not continue, mod to loop back to 0
         while (game->player_status[new_dealer] != PLAYER_ACTIVE) {
-            new_dealer = new_dealer + 1 % MAX_PLAYERS;
+            new_dealer = (new_dealer + 1) % MAX_PLAYERS;
             // if at any point we loop back to old dealer there is a problem! should not happen
             if (new_dealer == old_dealer)
                 printf("new_dealer = old dealer");
@@ -193,16 +193,20 @@ int server_bet(game_state_t *game) {
             case ACK:
                 // send an ACK msg to player
                 send(game->sockets[current_player], &out, sizeof(server_packet_t), 0);
+                
                 // advance to next player unless betting has ended
                 int next_player = advance_to_next_player(game);
                 // update current player
                 game->current_player = next_player;
+
                 // if the next person to go is the first player, we looped once! 
                 if (next_player == first_player) 
-                gone_to_everyone = true;
+                    gone_to_everyone = true;
+
                 if (gone_to_everyone && check_betting_end(game)) {
                     return 1; // betting round over!!
                 }
+
                 // resend info to every person at table (all in, active player, folded)
                 for (int i = 0; i < MAX_PLAYERS; i++) {
                     if (game->player_status[i] == PLAYER_ACTIVE || game->player_status[i] == PLAYER_FOLDED) {
@@ -211,6 +215,7 @@ int server_bet(game_state_t *game) {
                         send(game->sockets[i], &new_info, sizeof(server_packet_t), 0);
                     }
                 }
+
                 break;
             case NACK:
                 // send NACK
@@ -228,9 +233,9 @@ int server_bet(game_state_t *game) {
 // helper function to advance to next player, returns next_player pid
 int advance_to_next_player(game_state_t *game) {
     int current_player = game->current_player;
-    int next_player = current_player + 1 % MAX_PLAYERS;
+    int next_player = (current_player + 1) % MAX_PLAYERS;
     while (game->player_status[next_player] != PLAYER_ACTIVE) {
-        next_player += 1 % MAX_PLAYERS;
+        next_player = (next_player + 1) % MAX_PLAYERS;
     }
     return next_player;
 }
