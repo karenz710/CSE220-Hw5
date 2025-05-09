@@ -93,23 +93,29 @@ int main(int argc, char **argv) {
         game.round_stage = ROUND_INIT;
         server_ready(&game);
 
-
         // DEAL TO PLAYERS
-
+        server_deal(&game);
+        
+        game.round_stage = ROUND_PREFLOP;
         // PREFLOP BETTING
+        
 
+        game.round_stage = ROUND_FLOP;
         // PLACE FLOP CARDS
 
         // FLOP BETTING
-
+        
+        game.round_stage = ROUND_TURN;
         // PLACE TURN CARDS
 
         // TURN BETTING
 
+        game.round_stage = ROUND_RIVER;
         // PLACE RIVER CARDS
 
         // RIVER BETTING
         
+        game.round_stage = ROUND_SHOWDOWN;
         // ROUND_SHOWDOWN
     }
 

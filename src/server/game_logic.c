@@ -44,6 +44,9 @@ void init_game_state(game_state_t *game, int starting_stack, int random_seed){
     for (int i = 0; i < MAX_PLAYERS; i++) {
         game->player_stacks[i] = starting_stack;
     }
+    // at beginning of game dealer should be 0; initialize to -1 so when ready is called updates properly
+    // edge case: beginning of game
+    game->dealer_player = -1;
 }
 
 void reset_game_state(game_state_t *game) {
@@ -67,17 +70,17 @@ void server_join(game_state_t *game) {
 
 int server_ready(game_state_t *game) {
     //This function updated the dealer and checked ready/leave status for all players
-    client_packet_t in_pkt;
+    client_packet_t ready_pkt;
+    game->round_stage = ROUND_INIT;
     int num_ready = 0;
-
     for(int i = 0; i < MAX_PLAYERS; i++) {
         if (game->player_status[i] == PLAYER_ACTIVE) {
-            if (recv(game->sockets[i], &in_pkt, sizeof(in_pkt), 0) <= 0) {
+            if (recv(game->sockets[i], &ready_pkt, sizeof(ready_pkt), 0) <= 0) {
                 perror("recv failed in recv_packet");
                 return -1;
             }
 
-            switch (in_pkt.packet_type) {
+            switch (ready_pkt.packet_type) {
                 case READY:
                     game->player_status[i] = 1; // player active
                     num_ready++;
@@ -91,9 +94,37 @@ int server_ready(game_state_t *game) {
                     break; // not meant to happen
             }
         }
+    }
+    // update dealer
+    // start of game, player 0 goes first or lowest number ava.
+    if (game->dealer_player == -1) {
+        for (int i = 0; i < MAX_PLAYERS; i++) {
+            if (game->player_status[i] == PLAYER_ACTIVE) {
+                game->dealer_player = i;
+                break;
+            }
+        }
+        // curr player is updated to after
+        int curr_player = game->dealer_player + 1 % MAX_PLAYERS;
+        while (game->player_status[curr_player] != PLAYER_ACTIVE) {
+            curr_player = curr_player + 1 % MAX_PLAYERS;
+        }
+        game->current_player = curr_player;
+    } else {
+    // rounds thereafter
+        int old_dealer = game->dealer_player;
+        int new_dealer = old_dealer + 1 % MAX_PLAYERS;
+        // check if next player is ava if not continue, mod to loop back to 0
+        while (game->player_status[new_dealer] != PLAYER_ACTIVE) {
+            new_dealer = new_dealer + 1 % MAX_PLAYERS;
+            // if at any point we loop back to old dealer there is a problem! should not happen
+            if (new_dealer == old_dealer)
+                printf("new_dealer = old dealer");
+        }
         
     }
     print_game_state(game);
+    game->num_players = num_ready;
     return num_ready;
 }
 
@@ -105,12 +136,22 @@ int server_ready(game_state_t *game) {
 // if you try to "raise" more than you have,
 // if you send "READY" or "LEAVE" instead of check/call/raise/fold.
 void server_deal(game_state_t *game) {
+    for (int i = 0; i < 5; i++) 
+        game->community_cards[i] = NOCARD; // (NOCARD ~ -1)
+
     for (int i = 0; i < MAX_PLAYERS; i++) {
         if (game->player_status[i] == PLAYER_ACTIVE) {
             game->player_hands[i][0] = game->deck[game->next_card++];
             game->player_hands[i][1] = game->deck[game->next_card++];
+            // send info packet to each player who is PLAYER_ACTIVE 
+            server_packet_t out;
+            build_info_packet(game, i, &out);
+            if (send(game->sockets[i], &out, sizeof(server_packet_t), 0) <= 0){
+                perror("send packet fail in dealing stage");
+            }
         }
     }
+    
 }
 
 int server_bet(game_state_t *game) {
