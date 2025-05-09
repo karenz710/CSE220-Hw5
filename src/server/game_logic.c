@@ -68,6 +68,7 @@ void server_join(game_state_t *game) {
     }
 }
 
+// if 1 player or none HALT returns -1
 int server_ready(game_state_t *game) {
     //This function updated the dealer and checked ready/leave status for all players
     client_packet_t ready_pkt;
@@ -76,7 +77,7 @@ int server_ready(game_state_t *game) {
     for(int i = 0; i < MAX_PLAYERS; i++) {
         if (game->player_status[i] == PLAYER_ACTIVE) {
             if (recv(game->sockets[i], &ready_pkt, sizeof(ready_pkt), 0) <= 0) {
-                perror("recv failed in recv_packet");
+                printf("recv failed in recv_packet");
                 return -1;
             }
 
@@ -95,6 +96,21 @@ int server_ready(game_state_t *game) {
             }
         }
     }
+
+    // HALT
+    if (num_ready < 2) {
+        // if one person left send halt msg and close their port
+        server_packet_t halt_pkt;
+        halt_pkt.packet_type = HALT;
+        for (int i = 0; i < MAX_PLAYERS; i++) {
+            if (game->player_status[i] == PLAYER_ACTIVE) {
+                send(game->sockets[i], &halt_pkt, sizeof(server_packet_t), 0);
+                close(game->sockets[i]);
+            }
+        }
+        return -1;
+    }
+
     // update dealer
     // start of game, player 0 goes first or lowest number ava.
     if (game->dealer_player == -1) {
@@ -130,11 +146,7 @@ int server_ready(game_state_t *game) {
 
 //This was our dealing function with some of the code removed (I left the dealing so we have the same logic)
 // create packet info for each player and send packet info
-// send NACK if player - indicates still their turn and resend packet info
-// "raises" less than the call amount, 
-// if you check after someone bets, 
-// if you try to "raise" more than you have,
-// if you send "READY" or "LEAVE" instead of check/call/raise/fold.
+
 void server_deal(game_state_t *game) {
     for (int i = 0; i < 5; i++) 
         game->community_cards[i] = NOCARD; // (NOCARD ~ -1)
@@ -154,6 +166,11 @@ void server_deal(game_state_t *game) {
     
 }
 
+// send NACK if player - indicates still their turn and resend packet info
+// "raises" less than the call amount, 
+// if you check after someone bets, 
+// if you try to "raise" more than you have,
+// if you send "READY" or "LEAVE" instead of check/call/raise/fold.
 int server_bet(game_state_t *game) {
     //This was our function to determine if everyone has called or folded
     (void) game;

@@ -91,14 +91,17 @@ int main(int argc, char **argv) {
         // READY
         // ready or leave if leave disconnect the socket and skip the player for remaining rounds
         game.round_stage = ROUND_INIT;
-        server_ready(&game);
+        
+        // if -1 then it means one player or no players
+        if (server_ready(&game) == -1) 
+            break;
+        
 
         // DEAL TO PLAYERS
         server_deal(&game);
         
         game.round_stage = ROUND_PREFLOP;
         // PREFLOP BETTING
-        
 
         game.round_stage = ROUND_FLOP;
         // PLACE FLOP CARDS
