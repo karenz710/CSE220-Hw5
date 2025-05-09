@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-./build/server.poker_server 57 &
+timeout 30s ./build/server.poker_server 57 &
 SERVER_PID=$!
 
 sleep 1

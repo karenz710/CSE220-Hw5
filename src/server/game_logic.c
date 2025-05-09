@@ -193,6 +193,16 @@ int server_bet(game_state_t *game) {
             case ACK:
                 // send an ACK msg to player
                 send(game->sockets[current_player], &out, sizeof(server_packet_t), 0);
+                // advance to next player unless betting has ended
+                int next_player = advance_to_next_player(game);
+                // update current player
+                game->current_player = next_player;
+                // if the next person to go is the first player, we looped once! 
+                if (next_player == first_player) 
+                gone_to_everyone = true;
+                if (gone_to_everyone && check_betting_end(game)) {
+                    return 1; // betting round over!!
+                }
                 // resend info to every person at table (all in, active player, folded)
                 for (int i = 0; i < MAX_PLAYERS; i++) {
                     if (game->player_status[i] == PLAYER_ACTIVE || game->player_status[i] == PLAYER_FOLDED) {
@@ -201,17 +211,6 @@ int server_bet(game_state_t *game) {
                         send(game->sockets[i], &new_info, sizeof(server_packet_t), 0);
                     }
                 }
-                // advance to next player unless betting has ended
-                current_player = advance_to_next_player(game);
-                // if the next person to go is the first player, we looped once! 
-                if (current_player == first_player) 
-                    gone_to_everyone = true;
-                // if all bets are same among active players and at least has gone to everyone once, betting round is over
-                if (gone_to_everyone && check_betting_end(game)) {
-                    return 1; // betting round over!!
-                }
-                // update current_player 
-                game->current_player = current_player;
                 break;
             case NACK:
                 // send NACK
