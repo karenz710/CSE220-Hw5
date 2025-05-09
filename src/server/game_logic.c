@@ -4,10 +4,13 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/socket.h>
+#include <stdbool.h>
 
 #include "poker_client.h"
 #include "client_action_handler.h"
 #include "game_logic.h"
+
+int advance_to_next_player(game_state_t *game);
 
 //Feel free to add your own code. I stripped out most of our solution functions but I left some "breadcrumbs" for anyone lost
 
@@ -159,7 +162,7 @@ void server_deal(game_state_t *game) {
             server_packet_t out;
             build_info_packet(game, i, &out);
             if (send(game->sockets[i], &out, sizeof(server_packet_t), 0) <= 0){
-                perror("send packet fail in dealing stage");
+                printf("send packet fail in dealing stage");
             }
         }
     }
@@ -173,19 +176,104 @@ void server_deal(game_state_t *game) {
 // if you send "READY" or "LEAVE" instead of check/call/raise/fold.
 int server_bet(game_state_t *game) {
     //This was our function to determine if everyone has called or folded
-    (void) game;
-    return 0;
+    bool gone_to_everyone = false;
+    int first_player = game->current_player;
+    for(;;) {
+        int current_player = game->current_player; 
+        client_packet_t in;
+        server_packet_t out;
+
+        if (recv(game->sockets[current_player], &in, sizeof(in), 0) <= 0 ) {
+            printf("error receiving packet in server_bet");
+        }
+
+        handle_client_action(game, current_player, &in, &out);
+
+        switch (out.packet_type) {
+            case ACK:
+                // send an ACK msg to player
+                send(game->sockets[current_player], &out, sizeof(server_packet_t), 0);
+                // resend info to every person at table (all in, active player, folded)
+                for (int i = 0; i < MAX_PLAYERS; i++) {
+                    if (game->player_status[i] == PLAYER_ACTIVE || game->player_status[i] == PLAYER_FOLDED) {
+                        server_packet_t new_info;
+                        build_info_packet(game, i, &new_info);
+                        send(game->sockets[i], &new_info, sizeof(server_packet_t), 0);
+                    }
+                }
+                // advance to next player unless betting has ended
+                current_player = advance_to_next_player(game);
+                // if the next person to go is the first player, we looped once! 
+                if (current_player == first_player) 
+                    gone_to_everyone = true;
+                // if all bets are same among active players and at least has gone to everyone once, betting round is over
+                if (gone_to_everyone && check_betting_end(game)) {
+                    return 1; // betting round over!!
+                }
+                // update current_player 
+                game->current_player = current_player;
+                break;
+            case NACK:
+                // send NACK
+                send(game->sockets[current_player], &out, sizeof(server_packet_t), 0);
+                // resend info packet to same player
+                server_packet_t same_info;
+                build_info_packet(game, current_player, &same_info);
+                send(game->sockets[current_player], &same_info, sizeof(server_packet_t), 0);
+            default:
+                printf("error in server_bet for out switch case");
+        }
+    }
+}
+
+// helper function to advance to next player, returns next_player pid
+int advance_to_next_player(game_state_t *game) {
+    int current_player = game->current_player;
+    int next_player = current_player + 1 % MAX_PLAYERS;
+    while (game->player_status[next_player] != PLAYER_ACTIVE) {
+        next_player += 1 % MAX_PLAYERS;
+    }
+    return next_player;
 }
 
 // Returns 1 if all bets are the same among active players
 int check_betting_end(game_state_t *game) {
-    (void)game;
-    return 0; 
+    int all_are_same = 1;
+    int bet = -1;
+    // find first bet
+    for (int i = 0; i < MAX_PLAYERS; i++) {
+        if (game->player_status[i] == PLAYER_ACTIVE) {
+            bet = game->current_bets[i]; 
+            break;
+        } 
+    }
+    // compare w/ rest of bets
+    for (int i = 0; i < MAX_PLAYERS; i++) {
+        if (game->player_status[i] == PLAYER_ACTIVE) {
+            if (bet != game->current_bets[i]) {
+                return 0;
+            }
+        } 
+    }
+    return 1; // all bets are same
 }
 
 void server_community(game_state_t *game) {
     //This function checked the game state and dealt new community cards if needed;
-    (void) game;
+    if (game->round_stage == ROUND_FLOP) {
+        for (int i = 0; i < 3; i++) 
+            game->community_cards[i] = game->deck[game->next_card++];
+    }
+    // send packet to each active player folded player
+    for (int i = 0; i < MAX_PLAYERS; i++) {
+        if (game->player_status[i] == PLAYER_ACTIVE || game->player_status[i] == PLAYER_FOLDED) {
+            server_packet_t out;
+            build_info_packet(game, i, &out);
+            if (send(game->sockets[i], &out, sizeof(server_packet_t), 0) <= 0){
+                printf("send packet fail in community flop stage");
+            }
+        }
+    }
 }
 
 void server_end(game_state_t *game) {

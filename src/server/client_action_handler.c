@@ -18,10 +18,52 @@
  */
 int handle_client_action(game_state_t *game, player_id_t pid, const client_packet_t *in, server_packet_t *out) {
     //Optional function, see documentation above. Strongly reccomended.
-    (void)game;
-    (void)pid;
-    (void)in;
-    (void)out;
+    // send NACK if player - indicates still their turn and resend packet info
+    // "raises" less than the call amount, 
+    // if you check after someone bets, 
+    // if you try to "raise" more than you have,
+    // if you send "READY" or "LEAVE" instead of check/call/raise/fold.
+
+    int highest_bet = game->highest_bet; // must call check to this amount 
+    // or raise higher than the call amount
+    int player_current_bet = game->current_bets[pid];
+    int player_to_call = highest_bet - player_current_bet;
+
+    switch (in->packet_type) {
+        case CHECK:
+            // checking is when the highest bet is 0 
+            if (player_to_call == 0) {
+                out->packet_type = ACK;
+                return 1;
+                // nothing is changed
+            }  
+        default:
+            break;
+        /*
+         case CALL:
+            // call is when the highest bet is > 0
+            if (player_to_call > 0) {
+                // You can only ALL IN through a raise or a call. 
+                // NOT tested if you can split the pot correctly, you can just award the full pot to the winner.
+
+
+            } else {
+                // meant to check
+            
+            }
+        case RAISE:
+            int raise_amount = in->params[0];
+            if (raise_amount < player_to_call) {
+                out->packet_type = NACK;
+
+            } 
+
+        case FOLD:
+            game->player_status[pid] = PLAYER_FOLDED;
+            default:
+            break;*/
+            // sent READY or LEAVE reply NACK and resent packet info
+    }
     return -1;
 }
 
