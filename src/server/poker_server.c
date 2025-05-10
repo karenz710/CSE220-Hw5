@@ -87,11 +87,10 @@ int main(int argc, char **argv) {
     // after first hand, the next person is dealer
     while (1) {
         reset_game_state(&game);
-        
         // READY
         // ready or leave if leave disconnect the socket and skip the player for remaining rounds
         game.round_stage = ROUND_INIT;
-
+        
         // if -1 then it means one player or no players
         if (server_ready(&game) == -1) 
             break;
@@ -126,7 +125,12 @@ int main(int argc, char **argv) {
         server_bet(&game);
         
         game.round_stage = ROUND_SHOWDOWN;
+        
         // ROUND_SHOWDOWN
+        find_winner(&game);
+
+        // end
+        server_end(&game);
     }
 
     printf("[Server] Shutting down.\n");

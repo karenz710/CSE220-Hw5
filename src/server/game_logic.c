@@ -56,6 +56,7 @@ void reset_game_state(game_state_t *game) {
     shuffle_deck(game->deck);
     //Call this function between hands.
     //You should add your own code, I just wanted to make sure the deck got shuffled.
+    // zero out community cards, ...
 
 }
 
@@ -174,6 +175,7 @@ void server_deal(game_state_t *game) {
 // if you check after someone bets, 
 // if you try to "raise" more than you have,
 // if you send "READY" or "LEAVE" instead of check/call/raise/fold.
+// if at any point everyone folds but one person, that person automatically wins the hand
 int server_bet(game_state_t *game) {
     //This was our function to determine if everyone has called or folded
     bool gone_to_everyone = false;
@@ -215,8 +217,8 @@ int server_bet(game_state_t *game) {
                         send(game->sockets[i], &new_info, sizeof(server_packet_t), 0);
                     }
                 }
-
                 break;
+
             case NACK:
                 // send NACK
                 send(game->sockets[current_player], &out, sizeof(server_packet_t), 0);
@@ -293,18 +295,115 @@ void server_community(game_state_t *game) {
 
 void server_end(game_state_t *game) {
     //This function sends the end packet
-    info_packet_t info_pkt;
-    
+    server_packet_t end;
+    end.packet_type = END;
+    // player cards
+    for (int i = 0; i < MAX_PLAYERS; i++) {
+        end.end.player_cards[i][0] = game->player_hands[i][0];
+        end.end.player_cards[i][1] = game->player_hands[i][1];
+    }
+    //community cards
+    // player stacks
+    // pot size
+    // dealer (old dealer from finished hand)
+    // winner //ignore chopped pots
+    // player status 
+    for (int i = 0; i < MAX_PLAYERS; i++) {
+        if (game->player_status[i] == PLAYER_ACTIVE || game->player_status[i] == PLAYER_ALLIN) {
+            end.end.player_status[i] = 1; // active
+        } else if (game->player_status[i] == PLAYER_FOLDED) {
+            end.end.player_status[i] = 0; //folded
+        } else {
+            end.end.player_status[i] = 2; //left
+        }
+    }
+
 }
 
-int evaluate_hand(game_state_t *game, player_id_t pid) {
+/*
+lowest to highest
+    HAND_HIGH_CARD = 1,
+    HAND_ONE_PAIR = 2,
+    HAND_TWO_PAIR = 3,
+    HAND_THREE_OF_A_KIND = 4,
+    HAND_STRAIGHT = 5,
+    HAND_FLUSH = 6,
+    HAND_FULL_HOUSE = 7,
+    HAND_FOUR_OF_A_KIND = 8,
+    HAND_STRAIGHT_FLUSH = 9
+*/
+/*
+#define RANK(c)  ((c) >> SUITE_BITS)   // 0..12
+#define SUITE(c) ((c) & ((1 << SUITE_BITS) - 1))  // 0..3
+2,3,4,5,6,7,8,9,10,J,Q,K,A
+Example: RANK( ACE | SPADE ) = 12
+         SUITE( ACE | SPADE ) = 3
+*/
+/*
+When you enter “showdown”, the way to determine who has the best hand is by comparing the best 5 card hand for each player. This means each player can use 0, 1, or both of their hole cards alongside 3-5 of the public “community” cards. The ordering of poker hands from best to worst is as follows:
+
+Straight-Flush: 5 cards in consecutive order of the same suit (ex: 3h, 4h, 5h, 6h, 7h)
+4-of-a-kind: 4 cards that all have the same numerical value (ex: Kh, Ks, Kc, Kd, 7s)
+Full House: a pair and three of a kind (ex: Kh, Ks, 4d, 4s, 4c)
+Flush: 5 cards with the same suit (ex: 3h, 8h, 9h, Kh, Ah)
+Straight: 5 cards in consecutive order (ex: 9h, 10s, Jd, Qc, Kc)
+Three-of-a-kind: 3 cards with the same numerical value (ex: 2h, 2c, 2d, 6c, 8h)
+Two Pair: 2 groups of 2 cards with the same numerical value (ex: 4h, 4c, 6d, 8d, 8s)
+One Pair: 2 cards with the same numerical value (ex: 2h, 2c, 4d, 6c, 8h)
+High Card: None of the above hands.
+
+If two players have the same hand then there is a way to break ties.
+For straights and straight flushes, the player with the highest number in the straight wins
+	2-6 loses to 3-7 (A-5 is lowest straight; 10-A is highest; K, A, 2, 3, 4 is not a straight).
+For a Pair, 3 or 4-of-a-kind the player with the higher number being matched wins.
+	3,3,3,5,6 loses to 2,3,5,5,5
+For Full House and Two pair you use the above rule but compare:
+3-of-a-kind first, then higher pair, then lower pair
+For Flush and High card you compare the highest unique number
+	2h, 3h, 6h, 7h, Ah beats 3h, 6h, 7h, Qh, Kh but not 2h, 3h, 4h, Kh, Ah
+    */
+
+// compare two hands if hand1 > hand2 return pos number if hand1 < hand2 return neg number if = return 0
+int compare(const hand_value_t *hand1, const hand_value_t *hand2) {
+    // compare category
+
+
+    // if equal compare ranks
+    return 0;
+}
+typedef struct { 
+    // 9 = STRAIGHT FLUSH
+    // 8 = FOUR OF A KIND ...
+    int category; 
+    int ranks[5]; // for tie breaking 
+} hand_value_t;
+
+hand_value_t evaluate_5_card_val(card_t cards[5]) {
+
+}
+// evaluate best 5 card hand out of 7
+hand_value_t evaluate_hand(game_state_t *game, player_id_t pid) {
     //We wrote a function to compare a "value" for each players hand (to make comparison easier)
     //Feel free to not do this.
-    (void) game;
-    (void) pid;
+    card_t all_cards[7];
+    all_cards[0] = game->player_hands[pid][0];
+    all_cards[1] = game->player_hands[pid][1];
+    for (int i = 0; i < 5; i++) {
+        all_cards[i + 2] = game->community_cards[i];
+    }
+
+    hand_value_t best_hand;
+    memset(&best_hand, 0, sizeof(best_hand));
+
+    // check every 5 combination possibility, order doesn't matter 7c5 ways to check
+    // pass in subsets and get the best of 5 hands returned
+    evaluate
+    
+    
     return 0;
 }
 
+// returns player id with best 5 card hands
 int find_winner(game_state_t *game) {
     //We wrote this function that looks at the game state and returns the player id for the best 5 card hand.
     (void) game;
