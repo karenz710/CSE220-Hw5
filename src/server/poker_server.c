@@ -107,20 +107,23 @@ int main(int argc, char **argv) {
         game.round_stage = ROUND_FLOP;
         // PLACE FLOP CARDS
         server_community(&game);
-
-
+        
         // FLOP BETTING
-        // server_bet(&game);
+        server_bet(&game);
         
         game.round_stage = ROUND_TURN;
         // PLACE TURN CARDS
-
+        server_community(&game);
+        
         // TURN BETTING
+        server_bet(&game);
 
         game.round_stage = ROUND_RIVER;
         // PLACE RIVER CARDS
+        server_community(&game);
 
         // RIVER BETTING
+        server_bet(&game);
         
         game.round_stage = ROUND_SHOWDOWN;
         // ROUND_SHOWDOWN

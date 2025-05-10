@@ -264,11 +264,22 @@ int check_betting_end(game_state_t *game) {
 
 void server_community(game_state_t *game) {
     //This function checked the game state and dealt new community cards if needed;
-    if (game->round_stage == ROUND_FLOP) {
-        for (int i = 0; i < 3; i++) 
-            game->community_cards[i] = game->deck[game->next_card++];
+    switch (game->round_stage) {
+        case ROUND_FLOP:
+            for (int i = 0; i < 3; i++) 
+                game->community_cards[i] = game->deck[game->next_card++];
+            break;
+        case ROUND_TURN:
+            game->community_cards[3] = game->deck[game->next_card++];
+            break;
+        case ROUND_RIVER:
+            game->community_cards[4] = game->deck[game->next_card++];
+            break;
+        default:
+            break;
     }
-    // send packet to each active player folded player
+   
+    // send packet to each active player / folded player
     for (int i = 0; i < MAX_PLAYERS; i++) {
         if (game->player_status[i] == PLAYER_ACTIVE || game->player_status[i] == PLAYER_FOLDED) {
             server_packet_t out;
