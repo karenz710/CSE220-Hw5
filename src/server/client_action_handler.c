@@ -61,7 +61,20 @@ int handle_client_action(game_state_t *game, player_id_t pid, const client_packe
         case FOLD:
             game->player_status[pid] = PLAYER_FOLDED;
             default:
-            break;*/
+            break;
+            // check if 2nd to last person who folded
+            int tot_fold = 0;
+            for (int i = 0; i < MAX_PLAYERS; i++) {
+                if (game->player_status[i] == PLAYER_FOLDED) {
+                    tot_fold++;
+                }
+            }
+            if (tot_fold == game->num_players - 1) {
+                // skip to end packet and winner
+            }
+            */
+            
+            
             // sent READY or LEAVE reply NACK and resent packet info
     }
     return -1;

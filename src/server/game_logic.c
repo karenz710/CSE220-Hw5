@@ -363,14 +363,6 @@ For Flush and High card you compare the highest unique number
 	2h, 3h, 6h, 7h, Ah beats 3h, 6h, 7h, Qh, Kh but not 2h, 3h, 4h, Kh, Ah
     */
 
-// compare two hands if hand1 > hand2 return pos number if hand1 < hand2 return neg number if = return 0
-int compare(const hand_value_t *hand1, const hand_value_t *hand2) {
-    // compare category
-
-
-    // if equal compare ranks
-    return 0;
-}
 typedef struct { 
     // 9 = STRAIGHT FLUSH
     // 8 = FOUR OF A KIND ...
@@ -378,9 +370,24 @@ typedef struct {
     int ranks[5]; // for tie breaking 
 } hand_value_t;
 
+// compare two hands if hand1 > hand2 return pos number if hand1 < hand2 return neg number if = return 0
+int compare(const hand_value_t *hand1, const hand_value_t *hand2) {
+    // compare category
+    if (hand1->category > hand2->category) {
+        return 1;
+    } else if (hand1->category < hand2->category) {
+        return -1;
+    }
+
+    // if equal compare ranks
+
+    return 0;
+}
+
 hand_value_t evaluate_5_card_val(card_t cards[5]) {
 
 }
+
 // evaluate best 5 card hand out of 7
 hand_value_t evaluate_hand(game_state_t *game, player_id_t pid) {
     //We wrote a function to compare a "value" for each players hand (to make comparison easier)
@@ -392,20 +399,65 @@ hand_value_t evaluate_hand(game_state_t *game, player_id_t pid) {
         all_cards[i + 2] = game->community_cards[i];
     }
 
+    // defaulted category is 0 lowest ! good for compare
     hand_value_t best_hand;
     memset(&best_hand, 0, sizeof(best_hand));
 
     // check every 5 combination possibility, order doesn't matter 7c5 ways to check
     // pass in subsets and get the best of 5 hands returned
-    evaluate
+    // 0,1,2,3,4
+    // 0,1,2,3,5
+    // 0,1,2,3,6
+    // 0,1,2,4,5
+    // 0,1,2,4,6
+    // 0,1,3,4,5
+    for (int i = 0; i < 7; i++) {
+        for (int j = i+1; j < 7; j++) {
+            for (int k = j+1; k < 7; k++) {
+                for (int l = k+1; l < 7; k++) {
+                    for (int m = l+1; m < 7; m++) {
+                        card_t subset[5];
+                        subset[0] = all_cards[i];
+                        subset[1] = all_cards[j];
+                        subset[2] = all_cards[k];
+                        subset[3] = all_cards[l];
+                        subset[4] = all_cards[m];
+
+                        hand_value_t hand_val = evaluate_5_card_val(subset);
+                        if (compare(&hand_val, &best_hand) > 0)
+                            best_hand = hand_val;
+                    }
+                }
+            }
+        }
+    }
     
-    
-    return 0;
+    return best_hand;
 }
 
 // returns player id with best 5 card hands
 int find_winner(game_state_t *game) {
     //We wrote this function that looks at the game state and returns the player id for the best 5 card hand.
-    (void) game;
-    return -1;
+    player_id_t winner = -1;
+    hand_value_t winning_hand;
+    memset(&winning_hand, 0, sizeof(winning_hand));
+
+    for (int i = 0; i < MAX_PLAYERS; i++) {
+        if (game->player_status[i] == PLAYER_ACTIVE) {
+            hand_value_t players_best_hand = evaluate_hand(game, i); 
+
+            if (winner == -1) {
+                winner = i;
+                winning_hand = players_best_hand;
+            } else {
+                if (compare(&players_best_hand, &winning_hand) > 0) {
+                    winning_hand = players_best_hand;
+                    winner = i;
+                }
+            }
+        }
+       
+    }
+
+    return winner;
 }
