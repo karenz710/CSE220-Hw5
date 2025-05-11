@@ -372,7 +372,7 @@ void server_end(game_state_t *game) {
     build_end_packet(game, winner, &end);
 
     for (int i = 0; i < MAX_PLAYERS; i++) {
-        if (game->player_status[i] == PLAYER_ACTIVE)
+        if (game->player_status[i] == PLAYER_ACTIVE || game->player_status[i] == PLAYER_FOLDED)
             send(game->sockets[i], &end, sizeof(server_packet_t), 0);
     }
 }
