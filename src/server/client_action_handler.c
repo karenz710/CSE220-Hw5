@@ -133,7 +133,7 @@ void build_info_packet(game_state_t *game, player_id_t pid, server_packet_t *out
     out->info.pot_size = game->pot_size;
     out->info.dealer = game->dealer_player;
     out->info.player_turn = game->current_player;
-    out->info.bet_size = 0; 
+    out->info.bet_size = game->current_bets[pid]; 
     for (int i = 0; i < MAX_PLAYERS; i++) 
         out->info.player_bets[i] = game->current_bets[i]; 
 
