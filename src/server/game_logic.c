@@ -355,6 +355,12 @@ void server_community(game_state_t *game) {
             }
         }
     }
+    // current player is after dealer
+    int curr_player = (game->dealer_player + 1) % MAX_PLAYERS;
+        while (game->player_status[curr_player] != PLAYER_ACTIVE) {
+            curr_player = (curr_player + 1) % MAX_PLAYERS;
+        }
+    game->current_player = curr_player;
 }
 
 void server_end(game_state_t *game) {
