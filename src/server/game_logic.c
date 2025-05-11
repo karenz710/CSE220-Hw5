@@ -71,6 +71,23 @@ void reset_game_state(game_state_t *game) {
     //Call this function between hands.
     //You should add your own code, I just wanted to make sure the deck got shuffled.
     // zero out community cards, ...
+    for (int i = 0; i < 5; i++) {
+        game->community_cards[i] = 0;
+    }
+    game->next_card = 0;
+    for (int i = 0; i < 5; i++) {
+        game->player_stacks[i] = 0;
+    }
+    for (int i = 0; i < 5; i++) {
+        game->current_bets[i] = 0;
+    }
+    game->highest_bet = 0;
+    for (int i = 0; i < MAX_PLAYERS; i++) {
+        if (game->player_status[i] != PLAYER_LEFT) {
+            game->player_status[i] = PLAYER_ACTIVE;
+        }
+    }
+    game->pot_size = 0;
 
 }
 
@@ -156,7 +173,12 @@ int server_ready(game_state_t *game) {
                 printf("new_dealer = old dealer");
         }
         game->dealer_player = new_dealer;
-        
+        // update current player
+        int curr_player = (game->dealer_player + 1) % MAX_PLAYERS;
+        while (game->player_status[curr_player] != PLAYER_ACTIVE) {
+            curr_player = (curr_player + 1) % MAX_PLAYERS;
+        }
+        game->current_player = curr_player;
     }
     print_game_state(game);
     game->num_players = num_ready;
