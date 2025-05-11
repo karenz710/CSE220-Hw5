@@ -76,9 +76,6 @@ void reset_game_state(game_state_t *game) {
     }
     game->next_card = 0;
     for (int i = 0; i < 5; i++) {
-        game->player_stacks[i] = 0;
-    }
-    for (int i = 0; i < 5; i++) {
         game->current_bets[i] = 0;
     }
     game->highest_bet = 0;
