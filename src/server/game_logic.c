@@ -329,6 +329,12 @@ void server_community(game_state_t *game) {
         }
     game->highest_bet = 0;
     // reset bets
+    // current player is after dealer
+    int curr_player = (game->dealer_player + 1) % MAX_PLAYERS;
+    while (game->player_status[curr_player] != PLAYER_ACTIVE) {
+            curr_player = (curr_player + 1) % MAX_PLAYERS;
+    }
+    game->current_player = curr_player;
     //This function checked the game state and dealt new community cards if needed;
     switch (game->round_stage) {
         case ROUND_FLOP:
@@ -355,12 +361,6 @@ void server_community(game_state_t *game) {
             }
         }
     }
-    // current player is after dealer
-    int curr_player = (game->dealer_player + 1) % MAX_PLAYERS;
-        while (game->player_status[curr_player] != PLAYER_ACTIVE) {
-            curr_player = (curr_player + 1) % MAX_PLAYERS;
-        }
-    game->current_player = curr_player;
 }
 
 void server_end(game_state_t *game) {
