@@ -10,7 +10,20 @@
 #include "client_action_handler.h"
 #include "game_logic.h"
 
+typedef struct { 
+    // 9 = STRAIGHT FLUSH
+    // 8 = FOUR OF A KIND ...
+    int category; 
+    int ranks[5]; // for tie breaking 
+} hand_value_t;
+
 int advance_to_next_player(game_state_t *game);
+void sort5_desc(int arr[5]);
+hand_value_t eval_hand(game_state_t *game, player_id_t pid);
+hand_value_t evaluate_5_card_val(card_t cards[5]);
+int compare(const hand_value_t *hand1, const hand_value_t *hand2);
+
+
 
 //Feel free to add your own code. I stripped out most of our solution functions but I left some "breadcrumbs" for anyone lost
 
@@ -296,28 +309,12 @@ void server_community(game_state_t *game) {
 void server_end(game_state_t *game) {
     //This function sends the end packet
     server_packet_t end;
-    end.packet_type = END;
-    // player cards
+    build_end_packet(game, find_winner(game), &end);
+    
     for (int i = 0; i < MAX_PLAYERS; i++) {
-        end.end.player_cards[i][0] = game->player_hands[i][0];
-        end.end.player_cards[i][1] = game->player_hands[i][1];
+        if (game->player_status[i] == PLAYER_ACTIVE)
+            send(game->sockets[i], &end, sizeof(server_packet_t), 0);
     }
-    //community cards
-    // player stacks
-    // pot size
-    // dealer (old dealer from finished hand)
-    // winner //ignore chopped pots
-    // player status 
-    for (int i = 0; i < MAX_PLAYERS; i++) {
-        if (game->player_status[i] == PLAYER_ACTIVE || game->player_status[i] == PLAYER_ALLIN) {
-            end.end.player_status[i] = 1; // active
-        } else if (game->player_status[i] == PLAYER_FOLDED) {
-            end.end.player_status[i] = 0; //folded
-        } else {
-            end.end.player_status[i] = 2; //left
-        }
-    }
-
 }
 
 /*
@@ -363,13 +360,6 @@ For Flush and High card you compare the highest unique number
 	2h, 3h, 6h, 7h, Ah beats 3h, 6h, 7h, Qh, Kh but not 2h, 3h, 4h, Kh, Ah
     */
 
-typedef struct { 
-    // 9 = STRAIGHT FLUSH
-    // 8 = FOUR OF A KIND ...
-    int category; 
-    int ranks[5]; // for tie breaking 
-} hand_value_t;
-
 // compare two hands if hand1 > hand2 return pos number if hand1 < hand2 return neg number if = return 0
 int compare(const hand_value_t *hand1, const hand_value_t *hand2) {
     // compare category
@@ -379,17 +369,191 @@ int compare(const hand_value_t *hand1, const hand_value_t *hand2) {
         return -1;
     }
 
-    // if equal compare ranks
-
+    // if equal compare ranks (same category: straight, flush etc...)
+    for (int i = 0; i < 5; i++) {
+        if (hand1->ranks[i] > hand2->ranks[i]) {
+            return 1;
+        } else if (hand1->ranks[i] < hand2->ranks[i]) {
+            return -1;
+        }
+    }
+    // equal
     return 0;
 }
 
 hand_value_t evaluate_5_card_val(card_t cards[5]) {
+    hand_value_t hv;
+    memset(&hv, 0, sizeof(hv));
+    
+    // 1 extract rank/suit in arrays
+    int rank[5], suit[5];
+    for(int i=0; i<5; i++){
+        rank[i] = RANK(cards[i]);
+        suit[i] = SUITE(cards[i]);
+    }
+    
+    // sort rank array descending: bubble sort
+    for (int i=0; i<5; i++) {
+        for (int j=i+1; j<5; j++) {
+            if (rank[j] > rank[i]) {
+                int rtemp = rank[i];
+                rank[i] = rank[j];
+                rank[j] = rtemp;
+                
+                int stemp = suit[i];
+                suit[i] = suit[j];
+                suit[j] = stemp;
+            }
+        }
+    }
+    
+    // check for flush (all same suit)
+    bool is_flush = true;
+    for (int i=1; i<5; i++){
+        if(suit[i] != suit[0]){
+            is_flush = false;
+            break;
+        }
+    }
+    
+    // Check for straight:
+    // AKQJ10 is highest straight
+    // "Ace-low" case: A2345 => ranks would be [12, 3, 2, 1, 0] 
+    bool is_straight = true;
+    int top_straight_rank = rank[0]; 
+    for (int i=1; i<5; i++){
+        if(rank[i] != rank[i-1] - 1) {
+            is_straight = false;
+            break;
+        }
+    }
+    // Special check for A2345
+    // sorted descending is [12, 3, 2, 1, 0]
+    // If that pattern is found, the straight top rank we use is 3 (the '5')
+    if (!is_straight) {
+        // check A2345 specifically
+        // rank[0] = 12 (Ace), rank[1] = 3, rank[2] = 2, rank[3] = 1, rank[4] = 0
+        bool ace_low = (rank[0] == 12 && rank[1] == 3 && rank[2] == 2 && rank[3] == 1 && rank[4] == 0);
+        if(ace_low) {
+            is_straight = true;
+            top_straight_rank = 3; // (5 for A2345)
+        }
+    }
 
+    // count duplicates using frequency of each rank
+    int freq_count[13];
+    memset(freq_count, 0, sizeof(freq_count));
+    for(int i=0; i<5; i++){
+        freq_count[rank[i]]++;
+    }
+    // how many of each (4-of-a-kind, 3-of-a-kind, pairs)
+    // which rank is which
+    int four_rank = -1, three_rank = -1;
+    int pair_rank[2]; // might be up to 2 pairs
+    pair_rank[0] = pair_rank[1] = -1;
+    int pair_index = 0;
+    
+    for (int r=0; r<13; r++){
+        if (freq_count[r] == 4) four_rank = r;
+        if (freq_count[r] == 3) three_rank = r;
+        if (freq_count[r] == 2) {
+            if (pair_index < 2) {
+                pair_rank[pair_index++] = r;
+            }
+        }
+    }
+    
+    // categorize & fill hv.ranks for tie break
+    if (is_flush && is_straight) {
+        // Straight flush
+        hv.category = 9; // STRAIGHT_FLUSH
+        hv.ranks[0] = top_straight_rank;
+    }
+
+    else if (four_rank != -1) {
+        // Four of a kind
+        hv.category = 8;
+        hv.ranks[0] = four_rank; 
+        // other card
+        for (int i=0; i<5; i++){
+            if (rank[i] != four_rank){
+                hv.ranks[1] = rank[i];
+                break;
+            }
+        }
+    }
+    else if (three_rank != -1 && pair_rank[0] != -1) {
+        // Full house
+        hv.category = 7;
+        hv.ranks[0] = three_rank; // priority
+        hv.ranks[1] = pair_rank[0];
+    }
+    else if(is_flush) {
+        // Flush
+        hv.category = 6;
+        // all 5 ranks descending
+        for(int i=0; i<5; i++){
+            hv.ranks[i] = rank[i];
+        }
+    }
+    else if(is_straight) {
+        // straight
+        hv.category = 5;
+        hv.ranks[0] = top_straight_rank;
+    }
+    else if(three_rank != -1) {
+        // Three of a kind
+        hv.category = 4;
+        hv.ranks[0] = three_rank;
+        // two other cards in descending order
+        int idx = 1;
+        for(int i=0; i<5; i++){
+            if(rank[i] != three_rank){
+                hv.ranks[idx++] = rank[i];
+            }
+        }
+    }
+    else if(pair_rank[0] != -1 && pair_rank[1] != -1) {
+        // Two Pair
+        hv.category = 3;
+        // higher pair rank first
+        int highp = (pair_rank[0] > pair_rank[1]) ? pair_rank[0] : pair_rank[1];
+        int lowp  = (pair_rank[0] > pair_rank[1]) ? pair_rank[1] : pair_rank[0];
+        hv.ranks[0] = highp;
+        hv.ranks[1] = lowp;
+        // other card
+        for(int i=0; i<5; i++){
+            if(rank[i] != highp && rank[i] != lowp){
+                hv.ranks[2] = rank[i];
+                break;
+            }
+        }
+    }
+    else if(pair_rank[0] != -1) {
+        // One Pair
+        hv.category = 2;
+        hv.ranks[0] = pair_rank[0];
+        // then the 3 other cards
+        int idx = 1;
+        for(int i=0; i<5; i++){
+            if(rank[i] != pair_rank[0]){
+                hv.ranks[idx++] = rank[i];
+            }
+        }
+    }
+    else {
+        // high card
+        hv.category = 1;
+        for(int i=0; i<5; i++){
+            hv.ranks[i] = rank[i];
+        }
+    }
+
+    return hv;
 }
 
 // evaluate best 5 card hand out of 7
-hand_value_t evaluate_hand(game_state_t *game, player_id_t pid) {
+hand_value_t eval_hand(game_state_t *game, player_id_t pid) {
     //We wrote a function to compare a "value" for each players hand (to make comparison easier)
     //Feel free to not do this.
     card_t all_cards[7];
@@ -414,7 +578,7 @@ hand_value_t evaluate_hand(game_state_t *game, player_id_t pid) {
     for (int i = 0; i < 7; i++) {
         for (int j = i+1; j < 7; j++) {
             for (int k = j+1; k < 7; k++) {
-                for (int l = k+1; l < 7; k++) {
+                for (int l = k+1; l < 7; l++) {
                     for (int m = l+1; m < 7; m++) {
                         card_t subset[5];
                         subset[0] = all_cards[i];
@@ -444,7 +608,7 @@ int find_winner(game_state_t *game) {
 
     for (int i = 0; i < MAX_PLAYERS; i++) {
         if (game->player_status[i] == PLAYER_ACTIVE) {
-            hand_value_t players_best_hand = evaluate_hand(game, i); 
+            hand_value_t players_best_hand = eval_hand(game, i); 
 
             if (winner == -1) {
                 winner = i;

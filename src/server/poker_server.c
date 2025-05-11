@@ -127,7 +127,6 @@ int main(int argc, char **argv) {
         game.round_stage = ROUND_SHOWDOWN;
         
         // ROUND_SHOWDOWN
-        find_winner(&game);
 
         // end
         server_end(&game);

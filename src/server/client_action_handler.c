@@ -110,7 +110,37 @@ void build_info_packet(game_state_t *game, player_id_t pid, server_packet_t *out
 
 void build_end_packet(game_state_t *game, player_id_t winner, server_packet_t *out) {
     //Put state info from "game" (and calculate winner) into packet "out"
-    (void) game;
-    (void) winner;
-    (void) out;
+    out->packet_type = END;
+    for (int i = 0; i < MAX_PLAYERS; i++) {
+        out->end.player_cards[i][0] = game->player_hands[i][0];
+        out->end.player_cards[i][1] = game->player_hands[i][1];
+    }
+    //community cards
+    for (int i = 0; i < 5; i++) {
+        out->end.community_cards[i] = game->community_cards[i];
+    }
+    // player stacks
+    for (int i = 0; i < MAX_PLAYERS; i++) {
+        out->end.player_stacks[i] = game->player_stacks[i];
+    }
+    // pot size
+    out->end.pot_size = game->pot_size;
+
+    // dealer (old dealer from finished hand)
+    out->end.dealer = game->dealer_player;
+
+    // winner //ignore chopped pots
+    out->end.winner = winner;
+    
+    // player status 
+    for (int i = 0; i < MAX_PLAYERS; i++) {
+        if (game->player_status[i] == PLAYER_ACTIVE || game->player_status[i] == PLAYER_ALLIN) {
+            out->end.player_status[i] = 1; // active
+        } else if (game->player_status[i] == PLAYER_FOLDED) {
+            out->end.player_status[i] = 0; //folded
+        } else {
+            out->end.player_status[i] = 2; //left
+        }
+    }
+
 }
