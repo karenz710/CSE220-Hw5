@@ -72,12 +72,12 @@ int handle_client_action(game_state_t *game, player_id_t pid, const client_packe
         }
         case RAISE: {
             int raise_amount = in->params[0];
-            if (raise_amount <= player_to_call) {
+            if (raise_amount < player_to_call) {
                 // raised less than the call amount
                 out->packet_type = NACK;
                 return -1;
             } 
-    
+            
             int additional_raise = raise_amount - player_to_call;
             // check if have enough
             if (player_stack > raise_amount) {
