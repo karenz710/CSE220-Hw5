@@ -26,71 +26,96 @@ int handle_client_action(game_state_t *game, player_id_t pid, const client_packe
 
     int highest_bet = game->highest_bet; // must call check to this amount 
     // or raise higher than the call amount
-    int player_current_bet = game->current_bets[pid];
-    int player_to_call = highest_bet - player_current_bet;
+    int player_player_bet = game->current_bets[pid];
+    int player_to_call = highest_bet - player_player_bet;
+    int player_stack = game->player_stacks[pid];
 
     switch (in->packet_type) {
         case CHECK:
             // checking is when the highest bet is 0 
             if (player_to_call == 0) {
                 out->packet_type = ACK;
-                return 1;
                 // nothing is changed
-            }  
-        default:
-            break;
-        /*
-         case CALL:
-            // call is when the highest bet is > 0
-            if (player_to_call > 0) {
-                // You can only ALL IN through a raise or a call. 
-                // NOT tested if you can split the pot correctly, you can just award the full pot to the winner.
-
-
             } else {
-                // meant to check
-            
+                out->packet_type = NACK;
+                return -1;
             }
+            break;
+        
+        case CALL:
+            // call is when the highest bet is > 0
+            if (player_to_call  <= 0) {
+                // meant to check? treat words as same
+                out->packet_type = ACK;
+            }
+            if (player_stack > player_to_call) {
+                game->player_stacks[pid] -= player_to_call;
+                game->current_bets[pid] += player_to_call;
+                // increase pot
+                game->pot_size += player_to_call;
+                out->packet_type = ACK;
+            } else if (player_stack == player_to_call) {
+                // (all-in)
+                int all_in_amount = player_stack; //everything they have
+                game->player_stacks[pid] = 0;
+                game->current_bets[pid] += all_in_amount;
+                game->pot_size += all_in_amount;
+                game->player_status[pid] = PLAYER_ALLIN; 
+                out->packet_type = ACK;
+            } else {
+                // not enough
+                out->packet_type = NACK;
+                return -1;
+            }
+            break;
         case RAISE:
             int raise_amount = in->params[0];
-            if (raise_amount < player_to_call) {
+            if (raise_amount <= player_to_call) {
+                // raised less than the call amount
                 out->packet_type = NACK;
-
+                return -1;
             } 
-
+    
+            int additional_raise = raise_amount - player_to_call;
+            // check if have enough
+            if (player_stack > raise_amount) {
+                game->highest_bet += additional_raise;
+                game->player_stacks[pid] -= raise_amount;
+                game->current_bets[pid] += raise_amount;
+                game->pot_size += raise_amount;
+                out->packet_type = ACK;
+            } else if (player_stack == raise_amount) {
+                // (treat as all in)
+                int all_in_amount = player_stack; //everything they have
+                game->player_stacks[pid] = 0;
+                game->current_bets[pid] += all_in_amount;
+                game->pot_size += all_in_amount;
+                game->player_status[pid] = PLAYER_ALLIN; 
+                out->packet_type = ACK;
+            } else {
+                // not enough to raise
+                out->packet_type = NACK;
+                return -1;
+            }
+            break;
+        
         case FOLD:
             game->player_status[pid] = PLAYER_FOLDED;
-            default:
+            out->packet_type = ACK; 
             break;
-            // check if 2nd to last person who folded
-            int tot_fold = 0;
-            for (int i = 0; i < MAX_PLAYERS; i++) {
-                if (game->player_status[i] == PLAYER_FOLDED) {
-                    tot_fold++;
-                }
-            }
-            if (tot_fold == game->num_players - 1) {
-                // skip to end packet and winner is remaining player
-                server_packet_t end;
-    build_end_packet(game, find_winner(game), &end);
-    
-    for (int i = 0; i < MAX_PLAYERS; i++) {
-        if (game->player_status[i] == PLAYER_ACTIVE)
-            send(game->sockets[i], &end, sizeof(server_packet_t), 0);
-    }
-            }
-            */
+        default:
+            out->packet_type = NACK; // received ready/leave.. etc
+            return -1;
             
-            
-            // sent READY or LEAVE reply NACK and resent packet info
     }
-    return -1;
+    return 0;
 }
 
 void build_info_packet(game_state_t *game, player_id_t pid, server_packet_t *out) {
     //Put state info from "game" (for player pid) into packet "out"
 
     out->packet_type = INFO;
+    
     out->info.player_cards[0] = game->player_hands[pid][0];
     out->info.player_cards[1] = game->player_hands[pid][1];
     
@@ -112,15 +137,21 @@ void build_info_packet(game_state_t *game, player_id_t pid, server_packet_t *out
 
     for (int i = 0; i < MAX_PLAYERS; i++) 
         out->info.player_status[i] = game->player_status[i]; 
-
 }
+
+
 
 void build_end_packet(game_state_t *game, player_id_t winner, server_packet_t *out) {
     //Put state info from "game" (and calculate winner) into packet "out"
     out->packet_type = END;
     for (int i = 0; i < MAX_PLAYERS; i++) {
-        out->end.player_cards[i][0] = game->player_hands[i][0];
-        out->end.player_cards[i][1] = game->player_hands[i][1];
+        if (game->player_status[i] == 2) {//2 = left
+            out->end.player_cards[i][0] = NOCARD;
+            out->end.player_cards[i][1] = NOCARD;
+        } else {
+            out->end.player_cards[i][0] = game->player_hands[i][0];
+            out->end.player_cards[i][1] = game->player_hands[i][1];
+        }
     }
     //community cards
     for (int i = 0; i < 5; i++) {

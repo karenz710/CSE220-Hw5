@@ -94,40 +94,45 @@ int main(int argc, char **argv) {
         // if -1 then it means one player or no players
         if (server_ready(&game) == -1) 
             break;
-        
 
         // DEAL TO PLAYERS
         server_deal(&game);
         
         game.round_stage = ROUND_PREFLOP;
         // PREFLOP BETTING (aka before first 3 community cards)
-        server_bet(&game);
+        if (server_bet(&game) == -1) {
+            continue;
+        } // all folded except one and imm end round);
 
         game.round_stage = ROUND_FLOP;
         // PLACE FLOP CARDS
         server_community(&game);
         
         // FLOP BETTING
-        server_bet(&game);
+        if (server_bet(&game) == -1) {
+            continue;
+        }
         
         game.round_stage = ROUND_TURN;
         // PLACE TURN CARDS
         server_community(&game);
         
         // TURN BETTING
-        server_bet(&game);
+        if (server_bet(&game) == -1) {
+            continue;
+        }
 
         game.round_stage = ROUND_RIVER;
         // PLACE RIVER CARDS
         server_community(&game);
 
         // RIVER BETTING
-        server_bet(&game);
+        if (server_bet(&game) == -1) {
+            continue;
+        }
         
         game.round_stage = ROUND_SHOWDOWN;
-        
         // ROUND_SHOWDOWN
-
         // end
         server_end(&game);
     }

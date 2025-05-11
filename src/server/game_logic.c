@@ -72,20 +72,20 @@ void reset_game_state(game_state_t *game) {
     //You should add your own code, I just wanted to make sure the deck got shuffled.
     // zero out community cards, ...
     for (int i = 0; i < 5; i++) {
-        game->community_cards[i] = 0;
+        game->community_cards[i] = NOCARD;
     }
+    
     game->next_card = 0;
     for (int i = 0; i < 5; i++) {
         game->current_bets[i] = 0;
     }
     game->highest_bet = 0;
     for (int i = 0; i < MAX_PLAYERS; i++) {
-        if (game->player_status[i] != PLAYER_LEFT) {
+        if (game->player_status[i] != 2) { // if player is not left,
             game->player_status[i] = PLAYER_ACTIVE;
         }
     }
     game->pot_size = 0;
-
 }
 
 void server_join(game_state_t *game) {
@@ -229,26 +229,53 @@ int server_bet(game_state_t *game) {
             case ACK:
                 // send an ACK msg to player
                 send(game->sockets[current_player], &out, sizeof(server_packet_t), 0);
-                
-                // advance to next player unless betting has ended
-                int next_player = advance_to_next_player(game);
-                // update current player
-                game->current_player = next_player;
 
-                // if the next person to go is the first player, we looped once! 
-                if (next_player == first_player) 
-                    gone_to_everyone = true;
-
-                if (gone_to_everyone && check_betting_end(game)) {
-                    return 1; // betting round over!!
-                }
-
-                // resend info to every person at table (all in, active player, folded)
+                // Check if only one person left after fold, which they are the winner
+                // count number of active players (not folded or not left)
+                int active_players = 0;
+                int remaining_player = -1;
                 for (int i = 0; i < MAX_PLAYERS; i++) {
-                    if (game->player_status[i] == PLAYER_ACTIVE || game->player_status[i] == PLAYER_FOLDED) {
-                        server_packet_t new_info;
-                        build_info_packet(game, i, &new_info);
-                        send(game->sockets[i], &new_info, sizeof(server_packet_t), 0);
+                    // != 2 means not left != 0 means not folded
+                    if (game->player_status[i] != 2 && game->player_status[i] != 0) {
+                        printf("the active player is %d and their status is %d\n", i, game->player_status[i]);
+                        active_players++;
+                        remaining_player = i;
+                    }
+                }
+                printf("active players%d\n", active_players);
+                
+                if (active_players == 1) {
+                    printf("is this ever reached");
+                    // skip to send end packet and winner is remaining player
+                    server_packet_t end;
+                    // award last player pot
+                    game->player_stacks[remaining_player] = game->player_stacks[remaining_player] + game->pot_size;
+                    build_end_packet(game, remaining_player, &end);
+                    for (int i = 0; i < MAX_PLAYERS; i++) {
+                        if (game->player_status[i] == PLAYER_ACTIVE || game->player_status[i] == PLAYER_FOLDED)
+                            send(game->sockets[i], &end, sizeof(server_packet_t), 0);
+                    }  
+                    return -1; //ends game immediately 
+                } else {
+                    // advance to next player unless betting has ended
+                    int next_player = advance_to_next_player(game);
+                    // update current player
+                    game->current_player = next_player;
+
+                    // if the next person to go is the first player, we looped once! 
+                    if (next_player == first_player) 
+                        gone_to_everyone = true;
+
+                    if (gone_to_everyone && check_betting_end(game)) {
+                        return 1; // betting round over!!
+                    }
+                    // resend info to every person at table (all in, active player, folded)
+                    for (int i = 0; i < MAX_PLAYERS; i++) {
+                        if (game->player_status[i] == PLAYER_ACTIVE || game->player_status[i] == PLAYER_FOLDED) {
+                            server_packet_t new_info;
+                            build_info_packet(game, i, &new_info);
+                            send(game->sockets[i], &new_info, sizeof(server_packet_t), 0);
+                        }
                     }
                 }
                 break;
@@ -260,6 +287,7 @@ int server_bet(game_state_t *game) {
                 server_packet_t same_info;
                 build_info_packet(game, current_player, &same_info);
                 send(game->sockets[current_player], &same_info, sizeof(server_packet_t), 0);
+                break;
             default:
                 printf("error in server_bet for out switch case");
         }
@@ -330,8 +358,11 @@ void server_community(game_state_t *game) {
 void server_end(game_state_t *game) {
     //This function sends the end packet
     server_packet_t end;
-    build_end_packet(game, find_winner(game), &end);
-    
+
+    int winner = find_winner(game);
+    game->player_stacks[winner] = game->player_stacks[winner] + game->pot_size;
+    build_end_packet(game, winner, &end);
+
     for (int i = 0; i < MAX_PLAYERS; i++) {
         if (game->player_status[i] == PLAYER_ACTIVE)
             send(game->sockets[i], &end, sizeof(server_packet_t), 0);
