@@ -107,7 +107,8 @@ int server_ready(game_state_t *game) {
     game->round_stage = ROUND_INIT;
     int num_ready = 0;
     for(int i = 0; i < MAX_PLAYERS; i++) {
-        if (game->player_status[i] == PLAYER_ACTIVE) {
+        // not left
+        if (game->player_status[i] != 2) {
             if (recv(game->sockets[i], &ready_pkt, sizeof(ready_pkt), 0) <= 0) {
                 printf("recv failed in recv_packet");
                 return -1;
@@ -335,6 +336,11 @@ void server_community(game_state_t *game) {
             curr_player = (curr_player + 1) % MAX_PLAYERS;
     }
     game->current_player = curr_player;
+    for (int i = 0; i < MAX_PLAYERS; i++) {
+        if (game->player_status[i] != 2) { // if player is not left,
+            game->player_status[i] = PLAYER_ACTIVE;
+        }
+    }
     //This function checked the game state and dealt new community cards if needed;
     switch (game->round_stage) {
         case ROUND_FLOP:
