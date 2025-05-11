@@ -211,6 +211,11 @@ void server_deal(game_state_t *game) {
 // if you send "READY" or "LEAVE" instead of check/call/raise/fold.
 // if at any point everyone folds but one person, that person automatically wins the hand
 int server_bet(game_state_t *game) {
+    // reset bet to 0 and highest bet to 0
+    for (int i = 0; i < MAX_PLAYERS; i++) {
+        game->current_bets[i] = 0;
+    }
+    game->highest_bet = 0;
     //This was our function to determine if everyone has called or folded
     bool gone_to_everyone = false;
     int first_player = game->current_player;
