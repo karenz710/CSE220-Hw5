@@ -70,7 +70,14 @@ int handle_client_action(game_state_t *game, player_id_t pid, const client_packe
                 }
             }
             if (tot_fold == game->num_players - 1) {
-                // skip to end packet and winner
+                // skip to end packet and winner is remaining player
+                server_packet_t end;
+    build_end_packet(game, find_winner(game), &end);
+    
+    for (int i = 0; i < MAX_PLAYERS; i++) {
+        if (game->player_status[i] == PLAYER_ACTIVE)
+            send(game->sockets[i], &end, sizeof(server_packet_t), 0);
+    }
             }
             */
             
@@ -131,7 +138,7 @@ void build_end_packet(game_state_t *game, player_id_t winner, server_packet_t *o
 
     // winner //ignore chopped pots
     out->end.winner = winner;
-    
+
     // player status 
     for (int i = 0; i < MAX_PLAYERS; i++) {
         if (game->player_status[i] == PLAYER_ACTIVE || game->player_status[i] == PLAYER_ALLIN) {

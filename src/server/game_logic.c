@@ -67,6 +67,7 @@ void init_game_state(game_state_t *game, int starting_stack, int random_seed){
 
 void reset_game_state(game_state_t *game) {
     shuffle_deck(game->deck);
+
     //Call this function between hands.
     //You should add your own code, I just wanted to make sure the deck got shuffled.
     // zero out community cards, ...
@@ -146,7 +147,7 @@ int server_ready(game_state_t *game) {
     } else {
     // rounds thereafter
         int old_dealer = game->dealer_player;
-        int new_dealer =( old_dealer + 1) % MAX_PLAYERS;
+        int new_dealer = (old_dealer + 1) % MAX_PLAYERS;
         // check if next player is ava if not continue, mod to loop back to 0
         while (game->player_status[new_dealer] != PLAYER_ACTIVE) {
             new_dealer = (new_dealer + 1) % MAX_PLAYERS;
@@ -154,6 +155,7 @@ int server_ready(game_state_t *game) {
             if (new_dealer == old_dealer)
                 printf("new_dealer = old dealer");
         }
+        game->dealer_player = new_dealer;
         
     }
     print_game_state(game);
