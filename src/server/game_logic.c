@@ -281,10 +281,7 @@ int server_bet(game_state_t *game) {
             case NACK:
                 // send NACK
                 send(game->sockets[current_player], &out, sizeof(server_packet_t), 0);
-                // resend info packet to same player
-                server_packet_t same_info;
-                build_info_packet(game, current_player, &same_info);
-                send(game->sockets[current_player], &same_info, sizeof(server_packet_t), 0);
+                
                 break;
             default:
                 printf("error in server_bet for out switch case");
