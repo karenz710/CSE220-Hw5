@@ -237,15 +237,12 @@ int server_bet(game_state_t *game) {
                 for (int i = 0; i < MAX_PLAYERS; i++) {
                     // != 2 means not left != 0 means not folded
                     if (game->player_status[i] != 2 && game->player_status[i] != 0) {
-                        printf("the active player is %d and their status is %d\n", i, game->player_status[i]);
                         active_players++;
                         remaining_player = i;
                     }
                 }
-                printf("active players%d\n", active_players);
                 
                 if (active_players == 1) {
-                    printf("is this ever reached");
                     // skip to send end packet and winner is remaining player
                     server_packet_t end;
                     // award last player pot
