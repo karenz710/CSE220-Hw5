@@ -107,6 +107,7 @@ int main(int argc, char **argv) {
         game.round_stage = ROUND_FLOP;
         // PLACE FLOP CARDS
         server_community(&game);
+
         
         // FLOP BETTING
         if (server_bet(&game) == -1) {

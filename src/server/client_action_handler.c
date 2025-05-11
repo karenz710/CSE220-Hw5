@@ -26,8 +26,8 @@ int handle_client_action(game_state_t *game, player_id_t pid, const client_packe
 
     int highest_bet = game->highest_bet; // must call check to this amount 
     // or raise higher than the call amount
-    int player_player_bet = game->current_bets[pid];
-    int player_to_call = highest_bet - player_player_bet;
+    int player_bet = game->current_bets[pid];
+    int player_to_call = highest_bet - player_bet;
     int player_stack = game->player_stacks[pid];
 
     switch (in->packet_type) {
@@ -134,7 +134,7 @@ void build_info_packet(game_state_t *game, player_id_t pid, server_packet_t *out
     out->info.dealer = game->dealer_player;
     out->info.player_turn = game->current_player;
     // bet that must be called
-    out->info.bet_size = game->highest_bet - game->current_bets[pid]; 
+    out->info.bet_size = game->highest_bet;
     for (int i = 0; i < MAX_PLAYERS; i++) 
         out->info.player_bets[i] = game->current_bets[i]; 
 
