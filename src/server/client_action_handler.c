@@ -68,7 +68,7 @@ int handle_client_action(game_state_t *game, player_id_t pid, const client_packe
                 return -1;
             }
             break;
-        /*case RAISE:
+        case RAISE:
             int raise_amount = in->params[0];
             if (raise_amount <= player_to_call) {
                 // raised less than the call amount
@@ -97,7 +97,7 @@ int handle_client_action(game_state_t *game, player_id_t pid, const client_packe
                 out->packet_type = NACK;
                 return -1;
             }
-            break;*/
+            break;
         
         case FOLD:
             game->player_status[pid] = PLAYER_FOLDED;
