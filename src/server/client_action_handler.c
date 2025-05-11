@@ -31,7 +31,7 @@ int handle_client_action(game_state_t *game, player_id_t pid, const client_packe
     int player_stack = game->player_stacks[pid];
 
     switch (in->packet_type) {
-        case CHECK:
+        case CHECK:{
             // checking is when the highest bet is 0 
             if (player_to_call == 0) {
                 out->packet_type = ACK;
@@ -41,8 +41,8 @@ int handle_client_action(game_state_t *game, player_id_t pid, const client_packe
                 return -1;
             }
             break;
-        
-        case CALL:
+        }
+        case CALL: {
             // call is when the highest bet is > 0
             if (player_to_call  <= 0) {
                 // meant to check? treat words as same
@@ -68,7 +68,8 @@ int handle_client_action(game_state_t *game, player_id_t pid, const client_packe
                 return -1;
             }
             break;
-        case RAISE:
+        }
+        case RAISE: {
             int raise_amount = in->params[0];
             if (raise_amount <= player_to_call) {
                 // raised less than the call amount
@@ -98,14 +99,15 @@ int handle_client_action(game_state_t *game, player_id_t pid, const client_packe
                 return -1;
             }
             break;
-        
-        case FOLD:
+        }
+        case FOLD: {
             game->player_status[pid] = PLAYER_FOLDED;
             out->packet_type = ACK; 
             break;
-        default:
+        }
+        default:{
             out->packet_type = NACK; // received ready/leave.. etc
-            return -1;
+            return -1;}
             
     }
     return 0;
