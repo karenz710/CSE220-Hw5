@@ -47,6 +47,7 @@ int handle_client_action(game_state_t *game, player_id_t pid, const client_packe
             if (player_to_call  <= 0) {
                 // meant to check? treat words as same
                 out->packet_type = ACK;
+                break;
             }
             if (player_stack > player_to_call) {
                 game->player_stacks[pid] -= player_to_call;

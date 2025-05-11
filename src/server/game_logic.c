@@ -67,6 +67,11 @@ void init_game_state(game_state_t *game, int starting_stack, int random_seed){
 
 void reset_game_state(game_state_t *game) {
     shuffle_deck(game->deck);
+    for (int i = 0; i < MAX_PLAYERS; i++) {
+        if (game->player_status[i] != 2) { // if player is not left,
+            game->player_status[i] = PLAYER_ACTIVE;
+        }
+    }
 
     //Call this function between hands.
     //You should add your own code, I just wanted to make sure the deck got shuffled.
@@ -80,11 +85,6 @@ void reset_game_state(game_state_t *game) {
         game->current_bets[i] = 0;
     }
     game->highest_bet = 0;
-    for (int i = 0; i < MAX_PLAYERS; i++) {
-        if (game->player_status[i] != 2) { // if player is not left,
-            game->player_status[i] = PLAYER_ACTIVE;
-        }
-    }
     game->pot_size = 0;
 }
 
@@ -330,17 +330,14 @@ void server_community(game_state_t *game) {
         }
     game->highest_bet = 0;
     // reset bets
+    
     // current player is after dealer
     int curr_player = (game->dealer_player + 1) % MAX_PLAYERS;
     while (game->player_status[curr_player] != PLAYER_ACTIVE) {
             curr_player = (curr_player + 1) % MAX_PLAYERS;
     }
     game->current_player = curr_player;
-    for (int i = 0; i < MAX_PLAYERS; i++) {
-        if (game->player_status[i] != 2) { // if player is not left,
-            game->player_status[i] = PLAYER_ACTIVE;
-        }
-    }
+    
     //This function checked the game state and dealt new community cards if needed;
     switch (game->round_stage) {
         case ROUND_FLOP:

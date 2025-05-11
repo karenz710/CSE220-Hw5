@@ -97,12 +97,12 @@ int main(int argc, char **argv) {
 
         // DEAL TO PLAYERS
         server_deal(&game);
-        
+
         game.round_stage = ROUND_PREFLOP;
         // PREFLOP BETTING (aka before first 3 community cards)
         if (server_bet(&game) == -1) {
             continue;
-        } // all folded except one and imm end round);
+        } // all folded except one and imm end round
 
         game.round_stage = ROUND_FLOP;
         // PLACE FLOP CARDS
@@ -135,6 +135,12 @@ int main(int argc, char **argv) {
         game.round_stage = ROUND_SHOWDOWN;
         // ROUND_SHOWDOWN
         // end
+
+        for (int i = 0; i < MAX_PLAYERS; i++) {
+        if (game.player_status[i] != 2) { // if player is not left, or folded.
+            game.player_status[i] = PLAYER_ACTIVE;
+        }
+    }
         server_end(&game);
     }
 
