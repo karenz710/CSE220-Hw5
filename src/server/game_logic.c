@@ -325,10 +325,6 @@ int check_betting_end(game_state_t *game) {
 
 void server_community(game_state_t *game) {
     // reset bets
-    for (int i = 0; i < MAX_PLAYERS; i++) {
-            game->current_bets[i] = 0;
-        }
-    game->highest_bet = 0;
     //This function checked the game state and dealt new community cards if needed;
     switch (game->round_stage) {
         case ROUND_FLOP:
