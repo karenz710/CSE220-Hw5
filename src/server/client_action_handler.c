@@ -79,9 +79,12 @@ int handle_client_action(game_state_t *game, player_id_t pid, const client_packe
             } 
             
             int additional_raise = raise_amount - player_to_call;
+            int new_total_bet = player_bet + raise_amount;
+            if (new_total_bet > game->highest_bet) {
+                game->highest_bet = new_total_bet;
+            }
             // check if have enough
             if (player_stack > raise_amount) {
-                game->highest_bet += additional_raise;
                 game->player_stacks[pid] -= raise_amount;
                 game->current_bets[pid] += raise_amount;
                 game->pot_size += raise_amount;
