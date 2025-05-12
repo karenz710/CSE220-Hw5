@@ -136,12 +136,13 @@ int main(int argc, char **argv) {
         // ROUND_SHOWDOWN
         // end
 
-        for (int i = 0; i < MAX_PLAYERS; i++) {
-        if (game.player_status[i] != 2) { // if player is not left, or folded.
-            game.player_status[i] = PLAYER_ACTIVE;
-        }
-    }
+        
         server_end(&game);
+        for (int i = 0; i < MAX_PLAYERS; i++) {
+            if (game.player_status[i] != 2) { // if player is not left, or folded.
+                game.player_status[i] = PLAYER_ACTIVE;
+            }
+        }
     }
 
     printf("[Server] Shutting down.\n");
